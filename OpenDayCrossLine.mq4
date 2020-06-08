@@ -36,6 +36,7 @@ bool suppressThisIndicator = false;
 const double delta_pips = (double) pips / 10000.;
 const string obj_name = "my_text";
 ulong  microsecondsStart = GetMicrosecondCount();
+double last_mid;
 // **************************************
 
 
@@ -58,6 +59,11 @@ int init() {
 	   suppressThisIndicator = true;
 	   return (0);
 	}
+
+	// update and keep in memory the last price available
+	// You need to do this every time the settings of this indicator change
+	MqlTick last_price = getLastPrice();
+	last_mid =  (last_price.bid + last_price.ask ) /2.0;
 	
    suppressThisIndicator = false;
    openToday = getOpenPrice();
@@ -78,7 +84,7 @@ int deinit() {
 int start() {
 
    ulong newMicroSec = GetMicrosecondCount();
-   if (newMicroSec - microsecondsStart > 2000000 )
+   if (newMicroSec - microsecondsStart > 3000000 )
    {
       // delete the text
       ObjectDelete(obj_name);	
@@ -92,7 +98,6 @@ int start() {
       return (0);  
    }
 
-   
 	int style = 1;
 	openToday = getOpenPrice();
 	
@@ -100,12 +105,8 @@ int start() {
 	deinit();
 	drawTrendLine(getTrendLineName(OPEN_CROSS_LINE, timeframes[0]), openToday, colors[style], styles[style]);
 	
-	static double lastPrice = iClose(Symbol(), PERIOD_M1, 0);
-	
 	MqlTick latest_price = getLastPrice();
 	double latest_mid =  (latest_price.bid + latest_price.ask ) /2.0;
-	
-	static double last_mid = latest_mid;
 	
    string str_price = DoubleToString(latest_mid, 4);
      
@@ -118,7 +119,7 @@ int start() {
 	   last_mid = latest_mid;
    }
    else
-   if (latest_mid < openTodayDown && lastPrice > openTodayDown)
+   if (latest_mid < openTodayDown && last_mid > openTodayDown)
    {
  	   push_notify(true ,false, true, str_price, false);
 	   last_mid = latest_mid;
@@ -141,6 +142,7 @@ void drawTrendLine(string object_name, double price, color line_color, int line_
 	ObjectSet(object_name, OBJPROP_COLOR, line_color);
 	ObjectSet(object_name, OBJPROP_STYLE, line_style);
 	ObjectSet(object_name, OBJPROP_WIDTH, indicator_width3);
+	WindowRedraw();
 }
 
 string getTrendLineName(string object_type, int timeframe) {
@@ -171,7 +173,7 @@ double getOpenPrice()
 	
 	// if index is negative, them look at the yesterday price
 	// e.g. if gmt_hour = 14 and gmtTime_h24 = 15, look back 25 hours
-	index = index > 0 ? index : 24 - index;
+	index = index >= 0 ? index : 24 - index;
  
    return iOpen(Symbol(), PERIOD_H1, index);
 }
