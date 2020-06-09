@@ -62,8 +62,7 @@ int init() {
 
 	// update and keep in memory the last price available
 	// You need to do this every time the settings of this indicator change
-	MqlTick last_price = getLastPrice();
-	last_mid =  (last_price.bid + last_price.ask ) /2.0;
+	double last_mid = getLastPrice();
 	
    suppressThisIndicator = false;
    openToday = getOpenPrice();
@@ -105,8 +104,7 @@ int start() {
 	deinit();
 	drawTrendLine(getTrendLineName(OPEN_CROSS_LINE, timeframes[0]), openToday, colors[style], styles[style]);
 	
-	MqlTick latest_price = getLastPrice();
-	double latest_mid =  (latest_price.bid + latest_price.ask ) /2.0;
+	double latest_mid =  getLastPrice();
 	
    string str_price = DoubleToString(latest_mid, 4);
      
@@ -151,7 +149,41 @@ string getTrendLineName(string object_type, int timeframe) {
 
 
 
-double getOpenPrice()
+
+
+
+datetime notifyTag=0;
+//+-------------------------------------------------------------------------+
+//  Notify (the isNotifyOncePerCandle = true means that the message pops up 
+//  only once every minute in the M1 chart or every hour in the H1 chart  etc...                                             |
+//+-------------------------------------------------------------------------+
+void push_notify(bool isAlert,bool isPush, bool isPrint, string price_string, bool isNotifyOncePerCandle)
+  {
+   string pips_string = IntegerToString(pips)+ " pips";
+   string msg = "Price " + price_string + " has crossed the Open Day Level +/- " + pips_string;
+   string msgDetail=Symbol()+ " " +(string)Period() + " mins: " + msg;
+
+   if(!isNotifyOncePerCandle)
+     {
+      if(isAlert) Alert(msgDetail);
+      if(isPush)  SendNotification(msgDetail);
+      if(isPrint) Print(msgDetail);
+     }
+   else
+     {
+      if(notifyTag!=Time[0])
+        {
+         if(isAlert) Alert(msgDetail);
+         if(isPush)  SendNotification(msgDetail);
+         if(isPrint) Print(msgDetail);
+
+         notifyTag=Time[0];
+        }
+     }
+  }
+  
+  
+  double getOpenPrice()
 {
    /* 
 	The server is located in Malta fucking bastard, 
@@ -179,48 +211,17 @@ double getOpenPrice()
 }
 
 
-datetime notifyTag=0;
-//+-------------------------------------------------------------------------+
-//  Notify (the isNotifyOncePerCandle = true means that the message pops up 
-//  only once every minute in the M1 chart or every hour in the H1 chart  etc...                                             |
-//+-------------------------------------------------------------------------+
-void push_notify(bool isAlert,bool isPush, bool isPrint, string price_string, bool isNotifyOncePerCandle)
-  {
-   
-   string msg = "Price " + price_string + " has crossed the Open Day Level +/- " + IntegerToString(pips);
-   string msgDetail=Symbol()+ " " +(string)Period() + " mins: " + msg;
-
-   if(!isNotifyOncePerCandle)
-     {
-      if(isAlert) Alert(msgDetail);
-      if(isPush)  SendNotification(msgDetail);
-      if(isPrint) Print(msgDetail);
-     }
-   else
-     {
-      if(notifyTag!=Time[0])
-        {
-         if(isAlert) Alert(msgDetail);
-         if(isPush)  SendNotification(msgDetail);
-         if(isPrint) Print(msgDetail);
-
-         notifyTag=Time[0];
-        }
-     }
-  }
-  
-MqlTick getLastPrice()
+double getLastPrice()
 {
 
    // To be used for getting recent/latest price quotes
-   MqlTick latest_Price; // Structure to get the latest prices    
+   MqlTick latest_price; // Structure to get the latest prices    
      
-   SymbolInfoTick(Symbol() , latest_Price); // Assign current prices to structure 
+   SymbolInfoTick(Symbol() , latest_price); // Assign current prices to structure 
 
-   return latest_Price;
-
-   //dBid_Price = Latest_Price.bid;  // Current Bid price.
-   //dAsk_Price = Latest_Price.ask;  // Current Ask price.
+	double latest_mid =  (latest_price.bid + latest_price.ask ) /2.0;
+	return latest_mid;
+	
    }
    
 //+------------------------------------------------------------------+
