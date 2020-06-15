@@ -207,6 +207,14 @@ void push_notify(bool isAlert,bool isPush, bool isPrint, string price_string, bo
 	// e.g. if gmt_hour = 14 and gmtTime_h24 = 15, look back 25 hours
 	index = index >= 0 ? index : 24 - index;
  
+   
+   // this is the server time when Open(0) is shown
+   MqlDateTime mql_server_time;
+   datetime serverTime = iTime(Symbol(),PERIOD_H1,0);
+   TimeToStruct(serverTime, mql_server_time);
+   int server_hour = mql_server_time.hour;
+   index = index + server_hour - local_hour;
+   
    return iOpen(Symbol(), PERIOD_H1, index);
 }
 

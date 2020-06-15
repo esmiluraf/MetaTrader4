@@ -11,9 +11,9 @@
 #property indicator_color1 Yellow    // Buffer 0
 #property indicator_color2 Green     // Buffer 1
 #property indicator_color3 Red       // Buffer 2
-#property indicator_color4 Yellow    // Buffer 3
-#property indicator_color5 Green     // Buffer 4
-#property indicator_color6 Red       // Buffer 5
+#property indicator_color4 Magenta   // Buffer 3
+#property indicator_color5 Blue      // Buffer 4
+#property indicator_color6 Orange    // Buffer 5
 #property indicator_width1 3 // Buffer 0
 #property indicator_width2 3 // Buffer 1 
 #property indicator_width3 3 // Buffer 2

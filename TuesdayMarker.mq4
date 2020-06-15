@@ -23,6 +23,7 @@ color colors[5] =   {indicator_color1, indicator_color2, indicator_color3, indic
 
 
 // **************************************
+#define NUMBER_OF_WEEKS 52
 // open price today at the gmtTime_h24
 double tuesday_open_price[52];
 string tuesday_open_date[52];
@@ -36,11 +37,19 @@ int init() {
 	int local_hour = local_time.hour;
    int first_tuesday_index = (local_time.day_of_week  - 2 + 7) % 7;
     
-   for (int index = 0; index < 52; ++index)
+   int index = 0;
+   for (int day = 0; day < NUMBER_OF_WEEKS*7 && index < NUMBER_OF_WEEKS; ++day)
    {
-      tuesday_open_price[index] =  iOpen(Symbol(), PERIOD_D1, index*7 + first_tuesday_index);
-      datetime date  = iTime(Symbol(), PERIOD_D1, index*7 + first_tuesday_index);
-      tuesday_open_date[index]   = TimeToStr(date,TIME_DATE);
+      datetime jdate  = iTime(Symbol(), PERIOD_D1, day);
+      MqlDateTime date;
+      TimeToStruct(jdate, date);
+      // if it's a Tuesday
+      if (date.day_of_week == 2)
+      {
+         tuesday_open_price[index] =  iOpen(Symbol(), PERIOD_D1, day);
+         tuesday_open_date[index]   = TimeToStr(jdate,TIME_DATE);
+         index++;
+      }
    }
    
 	return(0);
@@ -48,11 +57,10 @@ int init() {
 
 int deinit() {
 
-  string object_types = OPEN_CROSS_LINE;
   for (int index = 0; index < 52; ++index)
   {
-      string lineName = OPEN_CROSS_LINE + " " + tuesday_open_date[index]; //IntegerToString(index);
-      ObjectDelete(getTrendLineName(object_types, PERIOD_D1));
+      string lineName = getStringForLine (index); 
+      ObjectDelete(getTrendLineName(lineName, PERIOD_D1));
 	}
 	WindowRedraw();  
 	return(0);
@@ -67,8 +75,10 @@ int start() {
 	
   for (int index = 0; index < 52; ++index)
   {
-      string lineName = OPEN_CROSS_LINE + " " + tuesday_open_date[index]; //IntegerToString(index);
-	   drawTrendLine(getTrendLineName(lineName, PERIOD_D1), tuesday_open_price[index], colors[style], STYLE_DOT);
+      int some_style_index = index % 5;    
+      string lineName = getStringForLine (index); 
+	   drawTrendLine(getTrendLineName(lineName, PERIOD_D1), tuesday_open_price[index], 
+	                  colors[some_style_index], STYLE_DOT);
 	}
 	WindowRedraw();  
 	return(0);
@@ -83,11 +93,17 @@ void drawTrendLine(string object_name, double price, color line_color, int line_
 	ObjectSet(object_name, OBJPROP_WIDTH, indicator_width1);
 }
 
-string getTrendLineName(string object_type, int timeframe) {
+string getTrendLineName(string object_type, int timeframe) 
+{
 	return(object_type);
 }
 
-  
+string getStringForLine(int index)
+{
+   return OPEN_CROSS_LINE + " " + tuesday_open_date[index]; 
+}
+
+
 double getOpenPrice()
 {
    return iOpen(Symbol(), PERIOD_D1, 0);
