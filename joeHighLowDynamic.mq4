@@ -14,76 +14,108 @@
 #property indicator_width2 2
 #property indicator_width3 3
 
-#include "Array.mqh"
-
 // - - - - - - - - - - Globals - - - - - - - - - - - 
 // ====================================================
-datetime globLastDrawnLineTime; 
-const string globPrefix = "marked@";
+const string globHighLineName = "globHighLineName";
+const string globLowLineName  = "globLowLineName";
 const double globHugeNumber   = 1e20;
 // ====================================================
 
 
 // - - - - - - - - -  Externals  - - - - - - - - - - - 
 //=====================================================
-extern int user_london_time_start = 23;
-extern int user_minutes_in_period =240;
+extern int  londonTime_H24 = 23;
 //=====================================================
+
+struct LowHighPriceInfo
+{
+   LowHighPriceInfo() : 
+            highest(-1.0),             // just a negative number
+            lowest(globHugeNumber),    // just a very big number
+            draw_highest(false),       
+            draw_lowest(false)      
+            {}
+            
+   double highest;
+   double lowest;  
+   bool draw_highest;
+   bool draw_lowest;;
+};
+
+//====================================
+LowHighPriceInfo globPrice; // global
+//====================================
+
 
 // ===========================================
 int init() 
 // ===========================================
-{   
+{ 
+   // we'll search backwards at this freqeuncy
+   const int kPeriod = PERIOD_M1;
+    
    // current datetime as the number of seconds elapsed since January 01, 1970. 
    datetime timeCurrent = TimeCurrent(); // <- typically the time of the server
-   // server time for the specific symbol (if index = 0 it iS typically same as TimeCurrent()
-   datetime serverTime = iTime(Symbol(), PERIOD_M1, 0);
+   // server time for the specific symbol (if index = 0 it i typically same as TimeCurrent()
+   datetime serverTime = iTime(Symbol(), kPeriod, 0);
    // London time, now
-   datetime localTime = TimeLocal(); 
+   datetime timeLocal = TimeLocal(); 
+   // GMT Time, London - 1h 
+   datetime timeGMT = TimeGMT();       // GMT Time, London - 1h
    
-   // return london time at H23:00 preceeding timeLocal
-   datetime time_local_london_start = get_pastTime_at (localTime, 0, 0, user_london_time_start);
+   // return london time at londonTime_H24 preceeding timeLocal
+   datetime timeLocal_at_londonTime_H24 = get_pastTime_at (timeLocal, 0, 0, londonTime_H24);
 
    // compute offset btw server time and londpn time
-   int secondOffset = serverTime - localTime;
+   int secondOffset = serverTime - timeLocal;
    
    // compute server time at londonTime_H24 preceeding timeLocal
-   datetime time_server_london_start = time_local_london_start + secondOffset;
+   datetime serverTime_at_londonTime_H24 = timeLocal_at_londonTime_H24 + secondOffset;
    
-   // minutes from the 'selected' beginning (server time) until now
-   int minutes_from_now = (serverTime - time_server_london_start) /60;
    
-    
+   
    // =========  
    // S T A R T 
    // =========
+   
+   //Initialize 
      
-   int m = minutes_from_now;
+   datetime theTime = serverTime; 
+     
+   int periodIndex = 0;
    
    // Start spamming the past
     
    // from now, look back until it's h23:00 (for example) local time and record min/max so far
-   while ( m > 0)
+   while ( theTime > serverTime_at_londonTime_H24)
    {     
-      /*
-      datetime backwardDatetime  = iTime(Symbol(), kPeriod, m);
+     // get the server time at t = now - kPeriod * periodIndex      
+      datetime backwardDatetime  = iTime(Symbol(), kPeriod, periodIndex);
       MqlDateTime mql_backwardDatetime;
-      TimeToStruct(backwardDatetime, mql_backwardDatetime);      
-      */
+      TimeToStruct(backwardDatetime, mql_backwardDatetime);
+        
       
-      // get the price at t = now - m minutes  
-      double price =  iOpen(Symbol(), PERIOD_M1, m);
+      // get the highes price of the candle backwards at t = now - kPeriod * periodIndex  
+      double last_high_price =  iHigh(Symbol(), kPeriod, periodIndex);
+      if (last_high_price > globPrice.highest)
+      {
+         globPrice.highest = last_high_price;
+      }
       
-      string line_name = globPrefix +  " ";
-      
-      drawTrendLine(line_name, price, indicator_color1, STYLE_SOLID);  
- 
-      m -= user_minutes_in_period;
+       // get the lowes price of the candle backwards at t = now - kPeriod * periodIndex  
+      double last_low_price =  iLow(Symbol(), kPeriod, periodIndex);
+      if (last_low_price < globPrice.lowest)
+      {
+         globPrice.lowest = last_low_price;
+      }
+      periodIndex++;
+      theTime = addMinutes(theTime, -1);
    }
    
-   globLastDrawnLineTime = iTime(Symbol(), PERIOD_M1, 0);
+   drawTrendLine(globHighLineName, globPrice.highest, indicator_color1, STYLE_SOLID);   
+   drawTrendLine(globLowLineName,  globPrice.lowest,  indicator_color4, STYLE_SOLID);   
+	WindowRedraw();  
    
-   WindowRedraw();  
 	return(0);
 }
 
@@ -92,12 +124,8 @@ int deinit()
 // ===========================================
 {
 
-   for (int i = 0; i < 0; ++i)
-   {
-      // ObjectDelete(globHighLineName);
-   }
-   
-   
+   ObjectDelete(globHighLineName);
+   ObjectDelete(globLowLineName);
    	
 	WindowRedraw();  
 	return(0);
@@ -107,18 +135,21 @@ int deinit()
 int start() 
 // ===========================================
 {
-
-	int style = 1;
+	updateLowHighPrice();
 	
-	datetime serverTime = iTime(Symbol(), PERIOD_M1, 0);
-	
-	int elapsedMinutes = (serverTime - globLastDrawnLineTime ) / 60;
-	
-	if (elapsedMinutes > user_minutes_in_period)
+	if (globPrice.draw_highest)
 	{
-	   double price = getLastMidPrice();
+	   const static string object_name_high = "high_price_hline"; 
+	   moveHLine(globHighLineName, globPrice.highest); 
+	   //drawTrendLine(object_name_high, price_info.highest, indicator_color1, STYLE_SOLID);   
 	}
 	
+	if (globPrice.draw_lowest)
+	{
+	   const  static string object_name_low = "low_price_hline";  
+	   moveHLine(globLowLineName, globPrice.lowest); 
+	   //drawTrendLine(object_name_low, price_info.lowest, indicator_color4, STYLE_SOLID);  
+	}
 	
 	WindowRedraw();  
 	return(0);
@@ -145,7 +176,7 @@ bool  moveHLine(string object_name, double price)
 
 
 
-double getLastMidPrice()
+double getLastPrice()
 {
    MqlTick latest_price;       
    SymbolInfoTick(Symbol() , latest_price); 
@@ -154,6 +185,29 @@ double getLastMidPrice()
 	
  }
 
+/***********************************************************
+update Lowest and Highest prices
+************************************************************/
+void updateLowHighPrice()
+{
+   double latestPrice = getLastPrice();
+   globPrice.draw_highest = false;
+   globPrice.draw_lowest  = false;   
+
+   if (latestPrice > globPrice.highest)
+   {
+      globPrice.highest = latestPrice;
+      globPrice.draw_highest = true;
+   }
+   
+   
+   if (latestPrice < globPrice.lowest)
+   {
+      globPrice.lowest = latestPrice;
+      globPrice.draw_lowest = true;
+   }  
+ }
+ 
  
 
 
